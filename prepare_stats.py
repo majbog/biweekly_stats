@@ -140,6 +140,36 @@ class GetStats:
         return self.general_tags_df, self.general_art_df
 
 
+    def prepare_stats(self):
+        # temporary solution
+        tags = pd.read_csv('tags.csv')
+        articles = pd.read_csv('articles.csv')
+        tags_by_year = self.organize_tags_by_year(tags, articles)
+        return tags_by_year
+
+
+    def organize_tags_by_year(self, df_tags, df_articles):
+        dfs = pd.merge(df_articles, df_tags, how='left', on='link')
+        dfs['pub_date'] = pd.to_datetime(dfs['pub_date'])
+        dfs['pub_date'] = dfs['pub_date'].dt.year
+        ty = dfs.loc[dfs.tag.notnull(), ['pub_date', 'tag']]
+        ty = ty.groupby('pub_date').tag.value_counts()
+        ty = ty.groupby(level=0).nlargest(5).reset_index(level=0, drop=True)
+        ty_dict = {}
+        year = []
+        for i in ty.index:
+            if i[0] not in year:
+                year.append(i[0])
+        for y in year:
+            ty_dict[y] = []
+            each_year = ty.loc[y,:].to_dict()
+            for yr in each_year:
+                dict = {yr[1]:each_year[yr]}
+                ty_dict[y].append(dict)
+
+        return ty_dict
+
+
 if '__main__' == __name__:
     a = GetStats()
-    print(a.prepare_tables())
+    print(a.prepare_stats())
