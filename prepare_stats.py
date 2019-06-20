@@ -1,5 +1,6 @@
 import datetime
 import feedparser
+import gender_guesser.detector as gender
 import pandas as pd
 from requests import get
 from bs4 import BeautifulSoup
@@ -57,7 +58,6 @@ class GetStats:
         return author, title
 
     def get_data_articles(self):
-        self.id_article = 1
         self.articles_metadata = []
         for link in RSS_LINKS:
             entries = feedparser.parse(link).entries
@@ -145,8 +145,8 @@ class GetStats:
         tags = pd.read_csv('tags.csv')
         articles = pd.read_csv('articles.csv')
         tags_by_year = self.organize_tags_by_year(tags, articles)
-        return tags_by_year
-
+        gender_by_year = self.show_gender_by_year(articles)
+        return gender_by_year
 
     def organize_tags_by_year(self, df_tags, df_articles):
         dfs = pd.merge(df_articles, df_tags, how='left', on='link')
@@ -157,18 +157,24 @@ class GetStats:
         ty = ty.groupby(level=0).nlargest(5).reset_index(level=0, drop=True)
         ty_dict = {}
         year = []
-        for i in ty.index:
-            if i[0] not in year:
-                year.append(i[0])
+        year = [i[0] for i in ty.index if i[0] not in year]
         for y in year:
             ty_dict[y] = []
             each_year = ty.loc[y,:].to_dict()
             for yr in each_year:
-                dict = {yr[1]:each_year[yr]}
-                ty_dict[y].append(dict)
+                ty_dict[y].append({yr[1]: each_year[yr]})
+        return ty_dict.keys()
 
-        return ty_dict
-
+    def show_gender_by_year(self, articles):
+        d = gender.Detector()
+        articles['pub_date'] = pd.to_datetime(articles['pub_date'])
+        articles['pub_date'] = articles['pub_date'].dt.year
+        ay = articles.loc[articles.author.notnull(), ['author', 'pub_date']]
+        ay['name'] = ay.author.str.split(' ', expand=True)[0]
+        ay['gender'] = ay['name'].apply(d.get_gender)
+        ay = ay.loc[ay.gender != 'unknown', ['pub_date', 'gender']]
+        ay = ay.groupby('pub_date').gender.value_counts()
+        return ay
 
 if '__main__' == __name__:
     a = GetStats()
