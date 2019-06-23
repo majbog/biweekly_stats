@@ -176,6 +176,13 @@ class GetStats:
         ay = ay.groupby('pub_date').gender.value_counts()
         return ay
 
+    def most_published(self, articles):
+        articles['pub_date'] = pd.to_datetime(articles['pub_date'])
+        articles['pub_date'] = articles['pub_date'].dt.year
+        pa = articles.loc[articles.author.notnull(), ['author', 'pub_date']]
+        pa = pa.groupby(level=0).nlargest(5).reset_index(level=0, drop=True)
+
+
 if '__main__' == __name__:
     a = GetStats()
     print(a.prepare_stats())
