@@ -2,6 +2,7 @@ import datetime
 import feedparser
 import gender_guesser.detector as gender
 import pandas as pd
+import unicodedata
 from requests import get
 from bs4 import BeautifulSoup
 from time import sleep
@@ -49,6 +50,16 @@ class GetStats:
             subject = None
         return subject
 
+    def get_read_duration(self, html):
+        mins = html.find_all('p', class_='article-reading-time article-reading-time--narrow--desk')[0].get_text(strip=True)
+        if mins:
+            mins = unicodedata.normalize('NFKD', mins) #strip=True doesn't seem to work
+            mins = [int(s) for s in mins.split() if s.isdigit()][0]
+        else:
+            mins = None
+        return mins
+
+
     def separate_title_and_author(self, string):
         tit_auth = string
         title = string[:string.find('(') - 1]
@@ -65,7 +76,7 @@ class GetStats:
                 self.articles_metadata.append(entry)
         self.tags_articles_df = pd.DataFrame(columns=['link', 'tag'])
         self.articles_complete_info_df = pd.DataFrame(
-            columns=['author', 'title', 'pub_date', 'subject', 'link']
+            columns=['author', 'title', 'pub_date', 'subject', 'link', 'read_duration']
         )
         for article in self.articles_metadata:
             author, title = self.separate_title_and_author(article['title'])
@@ -82,13 +93,15 @@ class GetStats:
                             ignore_index=True
                         )
                 subject = self.get_subj_pub(art_html)
+                duration = self.get_read_duration(art_html)
                 if title and author and published_date and subject:
                     self.articles_complete_info_df = self.articles_complete_info_df.append({
                         'author': author,
                         'title': title,
                         'pub_date': published_date,
                         'subject': subject,
-                        'link': art_link
+                        'link': art_link,
+                        'read_duration': duration
                     }, ignore_index=True)
         ### temporary solution for the tests
         self.articles_complete_info_df.to_csv('./articles.csv')
@@ -111,6 +124,7 @@ class GetStats:
                 art_html = self.get_html_from_the_website(link)
                 subject = self.get_subj_pub(art_html)
                 tags = self.get_tags_from_the_website(art_html)
+                duration = self.get_read_duration(art_html)
                 if tags is not None:
                     for tag in tags:
                         self.tags_articles_df = self.tags_articles_df.append(
@@ -123,7 +137,8 @@ class GetStats:
                         'title': title,
                         'pub_date': published_date,
                         'subject': subject,
-                        'link': link
+                        'link': link,
+                        'read_duration': duration
                     }, ignore_index=True)
             return self.tags_articles_df, self.articles_complete_info_df
 
