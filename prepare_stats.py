@@ -30,19 +30,14 @@ class GetStats:
 
 
     def get_tags_from_the_website(self, html):
-
-        tags = html.find_all('div', class_='article-property__value--tags')
-        tgs = ''
-        for tag in tags:
-            tgs += tag.text.replace('\t', '')
-        tgs, tgs = tgs.replace('  ', ''), tgs.replace(', ', ',')
-        if len(tgs) == 0:
-            tgs = None
+        tags = html.find_all('div', class_='article-property__value--tags')[0].find_all('a')
+        if tags:
+            all_tags = []
+            for tag in tags:
+                all_tags.append(tag.text)
+            return all_tags
         else:
-            tgs = tgs.split(',')
-            tgs[0] = tgs[0][1:]
-            tgs[-1] = tgs[-1][:-1]
-        return tgs
+            return None
 
     def get_subj_pub(self, html):
         subject = html.find_all('a', class_='u-unlink')[0]['href'][1:]
