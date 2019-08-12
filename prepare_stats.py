@@ -28,10 +28,10 @@ class GetStats:
             sleep(10)
             self.get_html_from_the_website(url)
 
-
     def get_tags_from_the_website(self, html):
-        tags = html.find_all('div', class_='article-property__value--tags')[0].find_all('a')
+        tags = html.find('div', class_='article-property__value--tags')
         if tags:
+            tags = tags.find_all('a')
             all_tags = []
             for tag in tags:
                 all_tags.append(tag.text)
@@ -46,14 +46,15 @@ class GetStats:
         return subject
 
     def get_read_duration(self, html):
-        mins = html.find_all('p', class_='article-reading-time article-reading-time--narrow--desk')[0].get_text(strip=True)
+        mins = html.find_all(
+            'p', class_='article-reading-time article-reading-time--narrow--desk'
+            )[0].get_text(strip=True)
         if mins:
-            mins = unicodedata.normalize('NFKD', mins) #strip=True doesn't seem to work
+            mins = unicodedata.normalize('NFKD', mins)      # strip=True doesn't seem to work
             mins = [int(s) for s in mins.split() if s.isdigit()][0]
         else:
             mins = None
         return mins
-
 
     def separate_title_and_author(self, string):
         tit_auth = string
@@ -98,16 +99,16 @@ class GetStats:
                         'link': art_link,
                         'read_duration': duration
                     }, ignore_index=True)
-        ### temporary solution for the tests
+        # temporary solution for the tests
         self.articles_complete_info_df.to_csv('./articles.csv')
         self.tags_articles_df.to_csv('./tags.csv')
-        ###
+        #
         return self.tags_articles_df, self.articles_complete_info_df
 
     def scrap_through_editions(self):
         self.tags_articles_df = pd.DataFrame(columns=['link', 'tag'])
         self.articles_complete_info_df = pd.DataFrame(
-            columns=['author', 'title', 'pub_date', 'subject', 'link']
+            columns=['author', 'title', 'pub_date', 'subject', 'link', 'read_duration']
         )
         entries = feedparser.parse('https://www.dwutygodnik.com/rss/wydanie').entries
         for edition in entries:
@@ -156,7 +157,7 @@ class GetStats:
         articles = pd.read_csv('articles.csv')
         tags_by_year = self.organize_tags_by_year(tags, articles)
         gender_by_year = self.show_gender_by_year(articles)
-        return gender_by_year
+        return tags_by_year, gender_by_year
 
     def organize_tags_by_year(self, df_tags, df_articles):
         dfs = pd.merge(df_articles, df_tags, how='left', on='link')
@@ -191,8 +192,9 @@ class GetStats:
         articles['pub_date'] = articles['pub_date'].dt.year
         pa = articles.loc[articles.author.notnull(), ['author', 'pub_date']]
         pa = pa.groupby(level=0).nlargest(5).reset_index(level=0, drop=True)
+        return pa
 
 
 if '__main__' == __name__:
     a = GetStats()
-    print(a.prepare_stats())
+    print(a.prepare_tables())
